@@ -1,6 +1,9 @@
 package boldt.scarchi
 
 object Island {
+  val FOOD = 0;
+  val RAWMAT = 1;
+  val GOODS = 2;
 }
 
 class Island(
@@ -15,11 +18,11 @@ class Island(
   val rawMatProductionFactor: Long,
   val goodsProductionFactor: Long,
   //
-  val gene: String,
+  val genome: String,
   val x: Double,
   val y: Double) {
 
-  def this(population: Long, gene: String, x: Double, y: Double) {
+  def this(population: Long, genome: String, x: Double, y: Double) {
     this(
       population = population,
       happiness = Util.randomPlusMinusPercent(100, 10),
@@ -32,15 +35,15 @@ class Island(
       rawMatProductionFactor = Util.randomPlusMinusPercent(population, 90),
       goodsProductionFactor = Util.randomPlusMinusPercent(population, 50),
       //
-      gene = gene,
+      genome = genome,
       x = x,
       y = y)
   }
 
-  def this(gene: String, mapWidth: Long, mapHeight: Long) {
+  def this(genome: String, mapWidth: Long, mapHeight: Long) {
     this(
       population = (math.random * 500).toLong + 50,
-      gene = gene,
+      genome = genome,
       x = (math.random * mapWidth),
       y = (math.random * mapHeight))
   }
@@ -50,48 +53,41 @@ class Island(
       population = other.eoyPopulation,
       happiness = other.eoyHappiness,
       //
-      foodStored = other.foodStored + other.eoyFoodProduced(other.population/3/*foodWorkers*/) - other.eoyFoodConsumed,
-      rawMatStored = other.rawMatStored + other.eoyRawMatProduced(other.population/3/*workers*/) - other.eoyGoodsProduced(999/*workers*/),
-      goodsStored = other.goodsStored + other.eoyGoodsProduced(other.population/3/*workers*/) - other.eoyGoodsConsumed,
+      foodStored = other.foodStored + other.eoyFoodProduced(other.workerAllocation(Island.FOOD)) - other.eoyFoodConsumed,
+      rawMatStored = other.rawMatStored + other.eoyRawMatProduced(other.workerAllocation(Island.RAWMAT)) - other.eoyGoodsProduced(other.workerAllocation(Island.GOODS)),
+      goodsStored = other.goodsStored + other.eoyGoodsProduced(other.workerAllocation(Island.GOODS)) - other.eoyGoodsConsumed,
       //
       foodProductionFactor = other.foodProductionFactor,
       rawMatProductionFactor = other.rawMatProductionFactor,
       goodsProductionFactor = other.goodsProductionFactor,
       //
-      gene = other.gene,
+      genome = other.genome,
       x = other.x,
       y = other.y)
   }
 
   def eoyPopulation = {
-    val births:Long = (population * 3 / 100)
+    val births:Long =
+      if (happiness >=150) population * 3 / 100
+      else if (happiness >=50) population * 2 / 100
+      else population * 1 / 100
     val deaths:Long = (population * 2 / 100)
     val starvation:Long = math.max(0, (population * 75 / 100) + 1 - foodStored)
     val jitter:Long = (math.random * 2).toLong
     val rawPopulation = population + births - deaths - starvation + jitter
     math.max(0, rawPopulation)
   }
-  
+
+  private def resourceScore(r:Long, g:Vector[Int]):Long = {
+    val quad:Int = math.max(0, math.min(3, (2 * r) / population)).toInt
+    
+    10 - g(quad)
+  }
+    
   def eoyHappiness = {
-    val foodQuad:Long = (4 * foodStored) / population
-    val foodDelta:Long = foodQuad match {
-      case 0 => -50
-      case 1 => -25
-      case 2 => -10
-      case 3 => 0
-      case 4 => 10
-      case _ => 20
-    }
-    val goodsQuad:Long = (4 * goodsStored) / population
-    val goodsDelta:Long = goodsQuad match {
-      case 0 => -20
-      case 1 => -10
-      case 2 => -5
-      case 3 => 0
-      case 4 => 5
-      case _ => 10
-    }
-    val rawHappiness = (happiness + foodDelta + goodsDelta)//if (foodStored > population*75/100) 100 else (happiness + foodDelta + goodsDelta)
+    val g = Genome.decode(genome)
+    val rawHappiness = happiness + resourceScore(foodStored, g(Island.FOOD)) + resourceScore(goodsStored, g(Island.GOODS))
+    //if (foodStored > population*75/100) 100 else (happiness + foodDelta + goodsDelta)
     math.min(200, math.max(0, rawHappiness))
   }
               
@@ -132,69 +128,86 @@ class Island(
   def eoyGoodsConsumed =
     math.min(goodsStored, population)
 
+  /*******************
+    Genetic behavior
+  *******************/
+  private def estimatedValueOfWorkerAllocation(workers:(Long,Long,Long)):Double = {
+    val g = Genome.decode(genome)
+    
+    resourceScore(Util.diminishedReturn(workers._1, foodProductionFactor) * 2 + foodStored, g(Island.FOOD)) +
+    resourceScore(Util.diminishedReturn(workers._2, rawMatProductionFactor) + rawMatStored, g(Island.RAWMAT)) +
+    resourceScore(Util.diminishedReturn(workers._3, goodsProductionFactor) + goodsStored, g(Island.GOODS))
+  }
+
+  private def getBestAllocation(workers:Vector[(Long,Long,Long)]):(Long,Long,Long) = {
+    
+    //TODO: learn to do this the functional way
+    
+    var best = (0L,0L,0L)
+    var bestVal = -99999.0
+    
+    for (w <- workers) {
+      val v = estimatedValueOfWorkerAllocation(w)
+      if (v > bestVal) {
+        best = w
+        bestVal = v
+      }
+    }
+    best
+  }
+  
+  private def calcWorkerAllocation(workers:(Long,Long,Long) = Tuple(0,0,0)):Vector[Long] = {
+    val increments:Long = 10
+    val popIncrement:Long = population / increments
+    val maxWorkers = popIncrement * increments
+    
+    if ((workers._1 + workers._2 + workers._3) >= maxWorkers)
+      Vector(workers._1, workers._2, workers._3)
+    else {
+      val best = getBestAllocation(
+        Vector(
+          Tuple(workers._1 + popIncrement, workers._2, workers._3),
+          Tuple(workers._1, workers._2 + popIncrement, workers._3),
+          Tuple(workers._1, workers._2, workers._3 + popIncrement)
+        )
+      )
+      calcWorkerAllocation(best)
+    }
+  }
+  
+  val workerAllocation:Vector[Long] =
+    calcWorkerAllocation()
+
 /*
-                
-                -----------------------------
-                ; Genetics
-                ;-----------------------------
+; trade first?  or allocate workers first? or both?
+(defn worker-allocation [island]
+    (let [
+        pop (:population island)
+        storage [(:food-stored island) (:rawmat-stored island) (:goods-stored island)]
+        value-table (decode-genome (:gene island))
+        ]
+    (loop [
+        workers [0 0 0]
+        ]
+        (let [
+            pop-10th (long (/ pop 10))
+            max-workers (* 10 pop-10th)
+            effective-storage (vec (map + storage workers))
+            quadrants (map #(pop-quad % pop) effective-storage)
+            valuations (map #(nth %1 (dec %2)) value-table quadrants)
+            best-value (reduce max valuations)
+            ]
+            (if
+                (>= (reduce + workers) max-workers )
+                workers
+                (cond
+                    ; Very ugly: need to learn more Clojure secrets...
+                    (= best-value (nth valuations 0)) (recur (vector (+ pop-10th (nth workers 0)) (nth workers 1) (nth workers 2)))
+                    (= best-value (nth valuations 1)) (recur (vector (nth workers 0) (+ pop-10th (nth workers 1)) (nth workers 2)))
+                    :else (recur (vector (nth workers 0) (nth workers 1) (+ pop-10th (nth workers 2))))
+                    ))))))
+*/
 
-                (defn- decode-genome-char [c]
-                    (- (int c) 64)
-                    )
-
-                (defn- gene-values [[a b c d]]
-                    (list (+ a b c d) (+ b c d) (+ c d) d)
-                    )
-
-                (defn decode-genome [gene]
-                    (map #(gene-values (map decode-genome-char %)) (partition 4 gene))
-                    )
-
-                ;-----------------------------
-                ; Genetic behavior
-                ;-----------------------------
-
-                ; trade first?  or allocate workers first? or both?
-                (defn worker-allocation [island]
-                    (let [
-                        pop (:population island)
-                        storage [(:food-stored island) (:rawmat-stored island) (:goods-stored island)]
-                        value-table (decode-genome (:gene island))
-                        ]
-                    (loop [
-                        workers [0 0 0]
-                        ]
-                        (let [
-                            pop-10th (long (/ pop 10))
-                            max-workers (* 10 pop-10th)
-                            effective-storage (vec (map + storage workers))
-                            quadrants (map #(pop-quad % pop) effective-storage)
-                            valuations (map #(nth %1 (dec %2)) value-table quadrants)
-                            best-value (reduce max valuations)
-                            ]
-                            (if
-                                (>= (reduce + workers) max-workers )
-                                workers
-                                (cond
-                                    ; Very ugly: need to learn more Clojure secrets...
-                                    (= best-value (nth valuations 0)) (recur (vector (+ pop-10th (nth workers 0)) (nth workers 1) (nth workers 2)))
-                                    (= best-value (nth valuations 1)) (recur (vector (nth workers 0) (+ pop-10th (nth workers 1)) (nth workers 2)))
-                                    :else (recur (vector (nth workers 0) (nth workers 1) (+ pop-10th (nth workers 2))))
-                                    ))))))
-
-                (defn score [{happiness :happiness population :population}]
-                    (+ happiness population)
-                    )
-
-                ;-----------------------------
-                ; Year iteration
-                ;-----------------------------
-
-
-                (defn many-years [n island]
-                    (if (> n 0)
-                        (many-years (dec n) (next-year island))
-                        island
-                        ))
-    */
+  def score:Long =
+    happiness + population
 }

@@ -1,8 +1,10 @@
 package boldt.scarchi.test
 
 import scala.collection.mutable.HashSet
+
 import org.scalatest.FunSuite
 import org.scalatest.matchers.ShouldMatchers
+
 import boldt.scarchi.Util
 
 class UtilObjectTest extends FunSuite with ShouldMatchers {

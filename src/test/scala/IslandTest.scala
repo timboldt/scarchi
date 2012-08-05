@@ -1,8 +1,8 @@
 package boldt.scarchi.test
 
-//import scala.collection.mutable.HashSet
 import org.scalatest.FunSuite
 import org.scalatest.matchers.ShouldMatchers
+
 import boldt.scarchi.Island
 
 class IslandTest extends FunSuite with ShouldMatchers {
@@ -21,16 +21,16 @@ class IslandTest extends FunSuite with ShouldMatchers {
       foodProductionFactor = foodProductionFactor,
       rawMatProductionFactor = rawMatProductionFactor,
       goodsProductionFactor = goodsProductionFactor,
-      gene = "AAAAAAAAAAAA",
+      genome = "ABCD-ABCD-ABCD",
       x = 1,
       y = 1)
       
   test("eoyPopulation") {
     (testIsland(foodStored=100).eoyPopulation
-    ) should (be > (100L) and be <= (105L))
+    ) should (be >= (100L) and be <= (105L))
 
     (testIsland(foodStored=0).eoyPopulation
-    ) should (be >= (25L) and be < (50L))
+    ) should (be >= (24L) and be < (50L))
 
     (testIsland(population=1,foodStored=0).eoyPopulation
     ) should (be >= (0L) and be <= (1L))
@@ -41,13 +41,13 @@ class IslandTest extends FunSuite with ShouldMatchers {
   
   test("eoyHappiness") {
     (testIsland().eoyHappiness
-    ) should be (115L)
+    ) should be (112L)
 
     (testIsland(goodsStored=99, foodStored=99).eoyHappiness
     ) should be (100L)
 
     (testIsland(happiness=0).eoyHappiness
-    ) should be (15L)
+    ) should be (12L)
 
     (testIsland(happiness=0, goodsStored=50, foodStored=50).eoyHappiness
     ) should be (0L)
