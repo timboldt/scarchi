@@ -26,12 +26,23 @@ object Genome {
     
   def decode(g: String):IndexedSeq[Vector[Int]] =
     g.split('-').toIndexedSeq.map(decodePart)
+
+  def getRGB(genome: String):(Int, Int, Int) = {
+    val v = Genome.decode(genome)
+    val r = math.abs(23*v(0)(0) + 19*v(0)(1) + 17*v(0)(2) + 13*v(0)(3)) % 229 + 25
+    val g = math.abs(23*v(1)(0) + 19*v(1)(1) + 17*v(1)(2) + 13*v(0)(3)) % 229 + 25
+    val b = math.abs(23*v(2)(0) + 19*v(2)(1) + 17*v(2)(2) + 13*v(0)(3)) % 229 + 25
+    (r,g,b)
+  }
+
     
   def mutate(g: String, p: Double) = {
     if (math.random <= p) {
       val r = util.Random.nextInt(12)
       val pos = if (r >= 8) r + 2 else if (r >= 4) r + 1 else r
-      g.substring(0, pos) + randomChar + g.substring(pos+1)
+      val newGenome = g.substring(0, pos) + randomChar + g.substring(pos+1)
+//      println("Mutation: " + newGenome)
+      newGenome
     }
     else {
       g

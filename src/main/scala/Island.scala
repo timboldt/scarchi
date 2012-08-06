@@ -4,7 +4,7 @@ object Island {
   val FOOD = 0;
   val RAWMAT = 1;
   val GOODS = 2;
-  val MUTATION_RATE = 0.001
+  val MUTATION_RATE = 0.001 //0.0003
   
   def deriveGene(isle:Island, islands:IndexedSeq[Island]):String = {
     var g = isle.genome
@@ -18,7 +18,7 @@ object Island {
       if (d > 0.0) {
         if (
           (d <= 1.0 && 1.0 > p) ||
-          (d > 1.0 && (1 / (d*d)) > p)
+          (d > 1.0 && (5.0 / (d*d)) > p)
         ) {
           //println(isle.population, i.population, d, p)
           g = i.genome
@@ -26,7 +26,7 @@ object Island {
       }
     }
         
-    Genome.mutate(g, Island.MUTATION_RATE)
+    Genome.mutate(g, Island.MUTATION_RATE/(isle.happiness+1.0))
   }
 }
 
