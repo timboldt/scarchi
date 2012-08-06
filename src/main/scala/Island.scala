@@ -4,6 +4,30 @@ object Island {
   val FOOD = 0;
   val RAWMAT = 1;
   val GOODS = 2;
+  val MUTATION_RATE = 0.001
+  
+  def deriveGene(isle:Island, islands:IndexedSeq[Island]):String = {
+    var g = isle.genome
+    
+    for (i <- islands) {
+      
+      val p = math.random * (isle.population/(i.population+1.0) + 1.0)
+      
+      val d = Util.distanceBetweenPoints(isle.x, isle.y, i.x, i.y)
+      
+      if (d > 0.0) {
+        if (
+          (d <= 1.0 && 1.0 > p) ||
+          (d > 1.0 && (1 / (d*d)) > p)
+        ) {
+          //println(isle.population, i.population, d, p)
+          g = i.genome
+        }
+      }
+    }
+        
+    Genome.mutate(g, Island.MUTATION_RATE)
+  }
 }
 
 class Island(
@@ -31,9 +55,9 @@ class Island(
       rawMatStored = Util.randomPlusMinusPercent(population, 10),
       goodsStored = Util.randomPlusMinusPercent(population, 10),
       //
-      foodProductionFactor = Util.randomPlusMinusPercent(population, 30),
+      foodProductionFactor = Util.randomPlusMinusPercent(population, 90),
       rawMatProductionFactor = Util.randomPlusMinusPercent(population, 90),
-      goodsProductionFactor = Util.randomPlusMinusPercent(population, 50),
+      goodsProductionFactor = Util.randomPlusMinusPercent(population, 90),
       //
       genome = genome,
       x = x,
@@ -42,13 +66,13 @@ class Island(
 
   def this(genome: String, mapWidth: Long, mapHeight: Long) {
     this(
-      population = (math.random * 500).toLong + 50,
+      population = (math.random * 5000).toLong + 50,
       genome = genome,
       x = (math.random * mapWidth),
       y = (math.random * mapHeight))
   }
 
-  def this(other: Island) {
+  def this(other: Island, islands: IndexedSeq[Island]) {
     this(
       population = other.eoyPopulation,
       happiness = other.eoyHappiness,
@@ -61,7 +85,7 @@ class Island(
       rawMatProductionFactor = other.rawMatProductionFactor,
       goodsProductionFactor = other.goodsProductionFactor,
       //
-      genome = other.genome,
+      genome = Island.deriveGene(other, islands),
       x = other.x,
       y = other.y)
   }
@@ -75,13 +99,12 @@ class Island(
     val starvation:Long = math.max(0, (population * 75 / 100) + 1 - foodStored)
     val jitter:Long = (math.random * 2).toLong
     val rawPopulation = population + births - deaths - starvation + jitter
-    math.max(0, rawPopulation)
+    math.max(1, rawPopulation)
   }
 
   private def resourceScore(r:Long, g:Vector[Int]):Long = {
     val quad:Int = math.max(0, math.min(3, (2 * r) / population)).toInt
-    
-    10 - g(quad)
+    g(quad)
   }
     
   def eoyHappiness = {

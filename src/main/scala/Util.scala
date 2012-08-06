@@ -7,8 +7,8 @@ object Util {
   def randomPlusMinusPercent(n: Long, pct: Long) =
     randomPlusMinusAbsolute(n, (pct.toDouble / 100 * n).toLong)
 
-  def distanceBetweenPoints(x1: Long, y1: Long, x2: Long, y2: Long):Long =
-    math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)).toLong
+  def distanceBetweenPoints(x1: Double, y1: Double, x2: Double, y2: Double):Double =
+    math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
     
   def diminishedReturn(value:Long, scale:Long) =
     if (value <= 0 || scale <=0) {
